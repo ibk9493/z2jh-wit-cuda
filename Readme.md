@@ -43,5 +43,7 @@ helm upgrade --cleanup-on-fail \
   --version=2.0.0 \
   --values config.yaml
 3.	Verify that everything is ready and running
+
 kubectl -n jupyter get all -o wide
+
 kubectl -n jupyter get ingress
