@@ -1,0 +1,170 @@
+hub:
+  networkPolicy:
+    enabled: false
+  config:
+    JupyterHub:
+      authenticator_class: 
+    LDAPAuthenticator:
+      allowed_groups:
+        - CN=
+      escape_userdn: 
+      lookup_dn: 
+      lookup_dn_search_user: 
+      lookup_dn_search_password: 
+      lookup_dn_search_filter: 
+      lookup_dn_user_dn_attribute: 
+      user_attribute:
+      user_search_base: 
+      server_address: 
+      server_port: 
+      use_ssl: true
+    KubeSpawner:
+      http_timeout: 600
+      k8s_api_request_timeout: 600
+      k8s_api_request_retry_timeout: 600
+      start_timeout: 600
+  db:
+    type: sqlite-memory
+
+prePuller:
+  hook:
+    enabled: true
+
+proxy:
+  chp:
+    networkPolicy:
+      enabled: false
+  traefik:
+    networkPolicy:
+      enabled: false
+  service:
+    nodePorts:
+      http: 31234
+    type: NodePort
+
+debug:
+  enabled: true
+
+scheduling:
+  userScheduler:
+    enabled: false
+  corePods:
+    nodeAffinity:
+      matchNodePurpose: ignore
+
+singleuser:
+  # uid: null
+  # allowPrivilegeEscalation: true
+  # cmd:
+    # - "jupyterhub-singleuser"
+    # - "--allow-root"
+  uid: 3030
+  startTimeout: 300
+  networkPolicy:
+    enabled: false
+  cpu:
+    guarantee: 0.5
+  memory:
+    guarantee: 1G
+  extraPodConfig:
+    topologySpreadConstraints:
+      - maxSkew: 1
+        topologyKey: kubernetes.io/hostname
+        whenUnsatisfiable: ScheduleAnyway
+        labelSelector:
+          matchLabels:
+            component: singleuser-server
+  image:
+    name: jupyter
+    pullPolicy: Always
+    tag: latest
+    pullSecrets:
+      - name: key
+  profileList:
+    - display_name: Default
+      description: "Old JupyterHub with some enhancements."
+      default: true
+    - display_name: minimal
+      description: "To avoid too much bells and whistles: Python."
+      kubespawner_override:
+        image: jupyter:minimal
+        pullPolicy: Always
+        image_pull_secrets:
+          - name: key
+    - display_name: tensorflow
+      description: "Scientific Jupyter Notebook Python Stack w/ TensorFlow."
+      kubespawner_override:
+        image: jupyter:tensorflow
+        pullPolicy: Always
+        image_pull_secrets:
+          - name: key
+    - display_name: scipy
+      description: "Scientific Jupyter Notebook Python."
+      kubespawner_override:
+        image: jupyter:scipy
+        pullPolicy: Always
+        image_pull_secrets:
+          - name: key
+    - display_name: datascience
+      description: "If you want the additional bells and whistles: Python, R, and Julia."
+      kubespawner_override:
+        image: jupyter:datascience
+        pullPolicy: Always
+        image_pull_secrets:
+          - name: key
+    - display_name: pyspark
+      description: "Python and Spark Jupyter Notebook."
+      kubespawner_override:
+        image: jupyter:pyspark
+        pullPolicy: Always
+        image_pull_secrets:
+          - name: key
+    - display_name: spark
+      description: "The Jupyter Stacks spark image."
+      kubespawner_override:
+        image: jupyter:spark-3.1.1
+        pullPolicy: Always
+        image_pull_secrets:
+          - name: key
+    - display_name: cuda
+      description: "The Jupyter Stacks with graphic card."
+      kubespawner_override:
+        image: jupyter:cuda
+        pullPolicy: Always
+        image_pull_secrets:
+          - name: key 
+  storage:
+    type: none
+    extraVolumes:
+      - name: jupyterhub-shared
+        persistentVolumeClaim:
+          claimName: jupyter-volume
+    extraVolumeMounts:
+      - name: jupyterhub-shared
+        mountPath: /home/jupyter
+  extraFiles:
+    # jupyter_notebook_config reference: https://jupyter-notebook.readthedocs.io/en/stable/config.html
+    jupyter_notebook_config.json:
+      mountPath: /etc/jupyter/jupyter_notebook_config.json
+      # data is a YAML structure here but will be rendered to JSON file as our file extension is ".json".
+      data:
+        MappingKernelManager: # To shut down kernels that are inactive
+          # cull_idle_timeout: timeout (in seconds) after which an idle kernel is considered ready to be culled
+          cull_idle_timeout: 86400 # 24 hours default: 0
+          # cull_interval: the interval (in seconds) on which to check for idle kernels exceeding the cull timeout value
+          cull_interval: 1800 # 30 minutes default: 300
+          # cull_connected: whether to consider culling kernels which have one or more connections
+          cull_connected: true # default: false
+          # cull_busy: whether to consider culling kernels which are currently busy running some code
+          cull_busy: false # default: false
+
+# To shut down servers that are inactive
+cull:
+    enabled: true # To enable culling
+    users: true # Cull users in addition to servers. This is for use in temporary-user cases such as tmpnb.
+    adminUsers: true # Whether admin users should be culled (only if --cull-users=true). (default True)
+    removeNamedServers: false # Remove named servers in addition to stopping them.
+    timeout: 86400 # 24 hours # The idle timeout (in seconds). (default 600)
+    every: 1800 # 30 minutes # The interval (in seconds) for checking for idle servers to cull. (default 0)
+    concurrency: 10 # Limit the number of concurrent requests made to the Hub.
+    maxAge: 0 # The maximum age (in seconds) of servers that should be culled even if they are active. (default 0)
